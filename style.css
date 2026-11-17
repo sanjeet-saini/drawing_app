@@ -125,6 +125,7 @@ ul li:nth-child(10){
     background-color: white;
 }
 canvas{
+    touch-action: none;
     height: 100%;
     width: 100%;
     border-top: 2px solid;
@@ -136,4 +137,4 @@ ol li {
     position: absolute;
     right: 10px;
     bottom: 10px;
-}
+}

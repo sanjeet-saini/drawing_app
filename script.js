@@ -1,249 +1,176 @@
 const canvas = document.querySelector("canvas"),
-toolBtns = document.querySelectorAll(".tool"),
-fillColor = document.querySelector("#fill-color"),
-sizeSlider = document.querySelector("#size-slider"),
-colorBtns = document.querySelectorAll(".colors .option"),
-colorPicker = document.querySelector("#color-picker"),
-cleatCanvas = document.querySelector(".clear-canvas"),
-saveImage = document.querySelector(".save-img"),
-ctx = canvas.getContext("2d");
+  toolBtns = document.querySelectorAll(".tool"),
+  fillColor = document.querySelector("#fill-color"),
+  sizeSlider = document.querySelector("#size-slider"),
+  colorBtns = document.querySelectorAll(".colors .option"),
+  colorPicker = document.querySelector("#color-picker"),
+  clearCanvas = document.querySelector(".clear-canvas"),
+  saveImage = document.querySelector(".save-img"),
+  ctx = canvas.getContext("2d");
 
-//global variabels wiht default values
-let prevMouseX, prevMouseY, snapshot,
-    isDrawing = false,
-    selectedTool = "brush",
-    brushWidth = 5,
-    selectedColor = "#000"; 
+// Global variables with default values
+let prevX,
+  prevY,
+  snapshot,
+  isDrawing = false,
+  selectedTool = "brush",
+  brushWidth = Number(sizeSlider.value),
+  selectedColor = "#000";
 
+// Fill the canvas with white so saved images don't have a transparent background
 const setCanvasBackground = () => {
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = selectedColor;
-}
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = selectedColor;
+};
 
-window.addEventListener("load", () => {
-    
-    // Setting canvas widht/height.. 
-    // offsetwidht/height returns 
-    // viewbale widht/height of an element
-    
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-    setCanvasBackground();
-});
+// Match the canvas drawing size to its on-screen size,
+// keeping the current drawing when the window is resized.
+const resizeCanvas = () => {
+  const previous = canvas.width && canvas.height ? ctx.getImageData(0, 0, canvas.width, canvas.height) : null;
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  setCanvasBackground();
+  if (previous) ctx.putImageData(previous, 0, 0);
+};
 
-const drawRect = (e) => {
+window.addEventListener("load", resizeCanvas);
+window.addEventListener("resize", resizeCanvas);
 
-    // If fillColor isn't checked draw a react wiht 
-    // border else draw rect wiht backgorund
-    if (!fillColor.checked) {
-        const width = prevMouseX - e.offsetX;
-        const height = prevMouseY - e.offsetY;
-        return ctx.strokeRect(e.offsetX, e.offsetY,width, height);
-    }
-    const width = prevMouseX - e.offsetX;
-    const height = prevMouseY - e.offsetY;
-    ctx.fillRect(e.offsetX, e.offsetY, width, height);
-}
+// Pointer position relative to the canvas (works for mouse, touch and stylus)
+const getPoint = (e) => {
+  const rect = canvas.getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+};
 
-const drawCircle = (e) => {
-    ctx.beginPath();
-    let radius = Math.sqrt(Math.pow((prevMouseX -
-    e.offsetX), 2) 
-    + Math.pow((prevMouseY - e.offsetY), 2));
-    ctx.arc(prevMouseX, prevMouseY, radius, 0, 2 * Math.PI);
-    fillColor.checked ? ctx.fill() : ctx.stroke();
-}
+const finishShape = () => (fillColor.checked ? ctx.fill() : ctx.stroke());
 
-const drawTriangle = (e) => {
-    ctx.beginPath(); 
-    ctx.moveTo(prevMouseX, prevMouseY);
-    ctx.lineTo(e.offsetX, e.offsetY); 
-    ctx.lineTo(prevMouseX * 2 - e.offsetX, e.offsetY); 
-    ctx.closePath(); 
-    fillColor.checked ? ctx.fill() : ctx.stroke();
-}
+const drawRect = ({ x, y }) => {
+  const width = prevX - x;
+  const height = prevY - y;
+  fillColor.checked ? ctx.fillRect(x, y, width, height) : ctx.strokeRect(x, y, width, height);
+};
 
-// Function to draw a square
-const drawSquare = (e) => {
-    const sideLength = Math.abs(prevMouseX - e.offsetX);
-    ctx.beginPath();
-    ctx.rect(e.offsetX, e.offsetY, sideLength, sideLength);
-    fillColor.checked ? ctx.fill() : ctx.stroke();
-}
+const drawCircle = ({ x, y }) => {
+  ctx.beginPath();
+  const radius = Math.hypot(prevX - x, prevY - y);
+  ctx.arc(prevX, prevY, radius, 0, 2 * Math.PI);
+  finishShape();
+};
 
-// // Function to draw a hexagon
-const drawHexagon = (e) => {
-    const sideLength =
-    Math.abs(prevMouseX - e.offsetX);
-    ctx.beginPath();
-    for (let i = 0; i < 6; i++) {
-        const angle = (2 * Math.PI / 6) * i;
-        const x = e.offsetX + sideLength 
-        * Math.cos(angle);
-        const y = e.offsetY + sideLength 
-        * Math.sin(angle);
-        ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    fillColor.checked ? ctx.fill() : ctx.stroke();
-}
+const drawTriangle = ({ x, y }) => {
+  ctx.beginPath();
+  ctx.moveTo(prevX, prevY);
+  ctx.lineTo(x, y);
+  ctx.lineTo(prevX * 2 - x, y);
+  ctx.closePath();
+  finishShape();
+};
 
-// Function to draw a pentagon
-const drawPentagon = (e) => {
-    const sideLength = 
-    Math.abs(prevMouseX - e.offsetX);
-    ctx.beginPath();
-    for (let i = 0; i < 5; i++) {
-        const angle = (2 * Math.PI / 5) * 
-        i - Math.PI / 2;
-        const x = e.offsetX + sideLength 
-        * Math.cos(angle);
-        const y = e.offsetY + sideLength 
-        * Math.sin(angle);
-        ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    fillColor.checked ? ctx.fill() : ctx.stroke();
-}
+const drawSquare = ({ x, y }) => {
+  const side = Math.max(Math.abs(prevX - x), Math.abs(prevY - y));
+  const startX = x < prevX ? prevX - side : prevX;
+  const startY = y < prevY ? prevY - side : prevY;
+  ctx.beginPath();
+  ctx.rect(startX, startY, side, side);
+  finishShape();
+};
 
-const drawLine = (e) => {
-    ctx.beginPath();
-    ctx.moveTo(prevMouseX, prevMouseY);
-    ctx.lineTo(e.offsetX, e.offsetY);
-    ctx.stroke();
-}
+// Regular hexagon centred on the start point
+const drawHexagon = ({ x, y }) => {
+  const radius = Math.hypot(prevX - x, prevY - y);
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const angle = ((2 * Math.PI) / 6) * i;
+    ctx.lineTo(prevX + radius * Math.cos(angle), prevY + radius * Math.sin(angle));
+  }
+  ctx.closePath();
+  finishShape();
+};
 
-const drawArrow = (e) => {
-    const headLength = 10;
-    const angle = Math.atan2(e.offsetY - prevMouseY,
-    e.offsetX - prevMouseX);
-    ctx.beginPath();
-    ctx.moveTo(prevMouseX, prevMouseY);
-    ctx.lineTo(e.offsetX, e.offsetY);
-    ctx.stroke();
-
-    // Draw arrowhead
-    ctx.beginPath();
-    ctx.moveTo(e.offsetX - headLength * 
-    Math.cos(angle - Math.PI / 6), 
-    e.offsetY - headLength * 
-    Math.sin(angle - Math.PI / 6));
-    ctx.lineTo(e.offsetX, e.offsetY);
-    ctx.lineTo(e.offsetX - headLength * 
-    Math.cos(angle + Math.PI / 6),
-    e.offsetY - headLength * 
-    Math.sin(angle + Math.PI / 6));
-    ctx.closePath();
-    ctx.fill();
-}
-
+const shapes = {
+  rectangle: drawRect,
+  circle: drawCircle,
+  triangle: drawTriangle,
+  square: drawSquare,
+  hexagon: drawHexagon,
+};
 
 const startDraw = (e) => {
-    isDrawing = true;
-    prevMouseX = e.offsetX; 
-    prevMouseY = e.offsetY;
-    ctx.beginPath();
-    ctx.lineWidth = brushWidth;
-    ctx.strokeStyle = selectedColor;
-    ctx.fillStyle = selectedColor;
-    snapshot = ctx.getImageData(0, 0, canvas.width,
-    canvas.height);
-}
-
-
-const drawPencil = (e) => {
-    ctx.lineTo(e.offsetX, e.offsetY);
-    ctx.stroke();
-}
-
+  isDrawing = true;
+  canvas.setPointerCapture(e.pointerId);
+  const { x, y } = getPoint(e);
+  prevX = x;
+  prevY = y;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineWidth = brushWidth;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = selectedTool === "eraser" ? "#fff" : selectedColor;
+  ctx.fillStyle = selectedColor;
+  // Snapshot lets shapes preview while dragging without leaving trails
+  snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+};
 
 const drawing = (e) => {
-    if (!isDrawing) return;
+  if (!isDrawing) return;
+  const point = getPoint(e);
+
+  if (shapes[selectedTool]) {
     ctx.putImageData(snapshot, 0, 0);
+    shapes[selectedTool](point);
+    return;
+  }
 
-    if (selectedTool === "brush" && selectedTool === "pencil" 
-    || selectedTool === "eraser") {
+  // Pencil, brush and eraser draw freehand lines
+  ctx.lineTo(point.x, point.y);
+  ctx.stroke();
+};
 
-        ctx.strokeStyle = selectedTool === "eraser" 
-        ? "#fff" : selectedColor;
-        ctx.lineTo(e.offsetX, e.offsetY);
-        ctx.stroke();
-    } else if (selectedTool === "rectangle") {
-        drawRect(e);
+const stopDraw = () => {
+  isDrawing = false;
+};
 
-    }
-    else if (selectedTool === "circle") {
-        drawCircle(e);
-
-    } else if (selectedTool === "triangle") {
-        drawTriangle(e);
-
-    } else if (selectedTool === "square") {
-        drawSquare(e);
-    } else if (selectedTool === "hexagon") {
-        drawHexagon(e);
-    } else if (selectedTool === "pentagon") {
-        drawPentagon(e);
-    } else if (selectedTool === "line") {
-        drawLine(e);
-    } else if (selectedTool === "arrow") {
-        drawArrow(e);
-    } else if (selectedTool === "curve") {
-        drawCurve(e);
-    }
-    else {
-        drawPencil(e);
-
-    }
-}
-
-
-toolBtns.forEach(btn => {
-    btn.addEventListener("click", () => {
-        document.querySelector(".options .active")
-        .classList.remove("active");
-        btn.classList.add("active");
-        selectedTool = btn.id;
-        console.log(selectedTool);
-
-    });
-
+toolBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelector(".options .active").classList.remove("active");
+    btn.classList.add("active");
+    selectedTool = btn.id;
+  });
 });
 
-sizeSlider.addEventListener("change", () => 
-    brushWidth = sizeSlider.value)
-
-colorBtns.forEach(btn => {
-    btn.addEventListener("click", () => {
-        document.querySelector(".options .selected")
-        .classList.remove("selected");
-        btn.classList.add("selected"); 
-        selectedColor = window.getComputedStyle(btn)
-        .getPropertyValue("background-color");
-    });
+sizeSlider.addEventListener("input", () => {
+  brushWidth = Number(sizeSlider.value);
 });
 
+colorBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelector(".options .selected").classList.remove("selected");
+    btn.classList.add("selected");
+    selectedColor = window.getComputedStyle(btn).getPropertyValue("background-color");
+  });
+});
 
 colorPicker.addEventListener("change", () => {
-    colorPicker.parentElement.style.background = 
-    colorPicker.value;
-    colorPicker.parentElement.click();
+  colorPicker.parentElement.style.background = colorPicker.value;
+  colorPicker.parentElement.click();
 });
 
-cleatCanvas.addEventListener("click", () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    setCanvasBackground();
-
-})
+clearCanvas.addEventListener("click", () => {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  setCanvasBackground();
+});
 
 saveImage.addEventListener("click", () => {
-    const link = document.createElement("a");
-    link.download = `${Date.now()}`.jpg;
-    link.href = canvas.toDataURL();
-    link.click();
-})
+  const link = document.createElement("a");
+  link.download = `drawing-${Date.now()}.jpg`;
+  link.href = canvas.toDataURL("image/jpeg", 0.95);
+  link.click();
+});
 
-canvas.addEventListener("mousedown", startDraw);
-canvas.addEventListener("mousemove", drawing);
-canvas.addEventListener("mouseup", () => isDrawing = false);
+// Pointer events cover mouse, touch and pen with one set of handlers
+canvas.addEventListener("pointerdown", startDraw);
+canvas.addEventListener("pointermove", drawing);
+canvas.addEventListener("pointerup", stopDraw);
+canvas.addEventListener("pointercancel", stopDraw);
